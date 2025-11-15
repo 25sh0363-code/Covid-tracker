@@ -118,7 +118,7 @@ if page == "Country Dashboard":
                              title=f"Case Fatality Rate - {selected_country}",
                              markers=True, labels={'cfr': 'CFR (%)', 'date': 'Date'})
                 fig.update_layout(height=500, template='plotly_white', hovermode='x unified')
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key="cfr_chart_tab3")
 
 elif page == "Daily Metrics":
     st.header("📊 Daily Metrics")
@@ -131,7 +131,7 @@ elif page == "Daily Metrics":
         metric_type = st.selectbox("Select Metric", ["Cases", "Deaths", "Recoveries"], key="daily_metric")
     
     country_data = filter_by_country(data, selected_country)
-plot_daily_metrics(country_data, selected_country, metric_type, key_suffix="daily_page")
+    plot_daily_metrics(country_data, selected_country, metric_type, key_suffix="daily_page")
 
 elif page == "Country Comparison":
     st.header("🌍 Country-wise Comparisons")
@@ -178,6 +178,7 @@ elif page == "About":
     
     ### 🔄 Last Update
     Data refreshes automatically from Our World in Data. Click "Refresh Data" to get the latest statistics.
+    
+    ### 👨‍💻 Developer
+    Built with Streamlit, Plotly, and Pandas for interactive COVID-19 data visualization.
     """)
-
-
