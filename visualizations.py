@@ -44,7 +44,7 @@ def plot_metrics_cards(latest, country):
             delta="Population normalized"
         )
 
-def plot_daily_metrics(data, country, metric_type):
+def plot_daily_metrics(data, country, metric_type, key_suffix=""):
     """Create line chart for daily metrics."""
     country_data = filter_by_country(data, country)
     
@@ -97,7 +97,9 @@ def plot_daily_metrics(data, country, metric_type):
     # Add range slider
     fig.update_xaxes(rangeslider_visible=True)
     
-    st.plotly_chart(fig, use_container_width=True)
+    # Use key to avoid duplicate element IDs
+    chart_key = f"chart_{country}_{metric_type}_{key_suffix}" if key_suffix else None
+    st.plotly_chart(fig, use_container_width=True, key=chart_key)
 
 def plot_country_comparison(data, countries, normalize=False):
     """Create comparison chart across multiple countries."""
