@@ -79,7 +79,16 @@ def load_covid_data():
 
 def filter_by_country(data, country):
     """Filter data for a specific country."""
-    return data[data['country'] == country].sort_values('date')
+    filtered = data[data['country'] == country].sort_values('date').copy()
+    
+    # Replace NaN with 0
+    filtered = filtered.fillna(0)
+    
+    # Only keep rows where we have at least cumulative data
+    # Don't filter out rows with 0 daily cases - those are valid!
+    filtered = filtered[filtered['cumulative_cases'] >= 0]
+    
+    return filtered
 
 def filter_by_date_range(data, start_date, end_date):
     """Filter data for a date range."""
