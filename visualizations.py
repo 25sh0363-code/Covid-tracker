@@ -1,6 +1,7 @@
 import plotly.graph_objects as go
 import plotly.express as px
 import streamlit as st
+import pandas as pd
 from data_fetcher import filter_by_country
 
 def plot_metrics_cards(latest, country):
@@ -8,37 +9,38 @@ def plot_metrics_cards(latest, country):
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        cumulative_cases = int(latest['cumulative_cases']) if latest['cumulative_cases'] > 0 else 0
-        daily_cases = int(latest['daily_cases']) if latest['daily_cases'] > 0 else 0
+        cumulative_cases = int(latest['cumulative_cases']) if pd.notna(latest['cumulative_cases']) else 0
+        daily_cases = int(latest['daily_cases']) if pd.notna(latest['daily_cases']) else 0
         st.metric(
             label="Total Cases",
-            value=f"{cumulative_cases:,}" if cumulative_cases > 0 else "No data",
-            delta=f"+{daily_cases:,}" if daily_cases > 0 else "No new cases"
+            value=f"{cumulative_cases:,}",
+            delta=f"+{daily_cases:,}" if daily_cases > 0 else "0 new cases"
         )
     
     with col2:
-        cumulative_deaths = int(latest['cumulative_deaths']) if latest['cumulative_deaths'] > 0 else 0
-        daily_deaths = int(latest['daily_deaths']) if latest['daily_deaths'] > 0 else 0
+        cumulative_deaths = int(latest['cumulative_deaths']) if pd.notna(latest['cumulative_deaths']) else 0
+        daily_deaths = int(latest['daily_deaths']) if pd.notna(latest['daily_deaths']) else 0
         st.metric(
             label="Total Deaths",
-            value=f"{cumulative_deaths:,}" if cumulative_deaths > 0 else "No data",
-            delta=f"+{daily_deaths:,}" if daily_deaths > 0 else "No new deaths"
+            value=f"{cumulative_deaths:,}",
+            delta=f"+{daily_deaths:,}" if daily_deaths > 0 else "0 new deaths"
         )
     
     with col3:
-        cfr_value = float(latest['cfr']) if latest['cfr'] > 0 and latest['cfr'] != float('inf') else 0
+        cfr_value = float(latest['cfr']) if pd.notna(latest['cfr']) and latest['cfr'] != float('inf') else 0
         st.metric(
             label="Case Fatality Rate",
-            value=f"{cfr_value:.2f}%" if cfr_value > 0 else "N/A",
+            value=f"{cfr_value:.2f}%",
             delta="Per confirmed case"
         )
     
     with col4:
-        population = float(latest['population']) if latest['population'] > 0 else 0
-        cases_per_100k = (float(latest['cumulative_cases']) / population * 100000) if population > 0 and latest['cumulative_cases'] > 0 else 0
+        population = float(latest['population']) if pd.notna(latest['population']) and latest['population'] > 0 else 1
+        cumulative_cases_val = float(latest['cumulative_cases']) if pd.notna(latest['cumulative_cases']) else 0
+        cases_per_100k = (cumulative_cases_val / population * 100000) if population > 1 else 0
         st.metric(
             label="Cases per 100K",
-            value=f"{cases_per_100k:.1f}" if cases_per_100k > 0 else "N/A",
+            value=f"{cases_per_100k:.1f}",
             delta="Population normalized"
         )
 
@@ -54,30 +56,42 @@ def plot_daily_metrics(data, country, metric_type):
     if metric_type == "Cases":
         column = "daily_cases"
         title = f"Daily New Cases - {country}"
+        y_label = "Daily New Cases"
     elif metric_type == "Deaths":
         column = "daily_deaths"
         title = f"Daily New Deaths - {country}"
+        y_label = "Daily New Deaths"
     else:
         column = "cumulative_cases"
         title = f"Cumulative Cases - {country}"
+        y_label = "Cumulative Cases"
     
     # Remove rows where the column value is NaN
     plot_data = country_data[country_data[column].notna()].copy()
     
-    if plot_data.empty or plot_data[column].sum() == 0:
+    if plot_data.empty:
         st.info(f"No {metric_type.lower()} data available for {country}")
         return
     
-    fig = px.line(plot_data, x='date', y=column, title=title,
-                  labels={'date': 'Date', column: 'Count'},
-                  markers=True)
+    # Create the plot with proper hover data
+    fig = px.line(plot_data, x='date', y=column, title=title)
+    
+    # Update traces for better hover
+    fig.update_traces(
+        mode='lines+markers',
+        hovertemplate='<b>Date:</b> %{x|%Y-%m-%d}<br><b>' + y_label + ':</b> %{y:,.0f}<extra></extra>',
+        line=dict(width=2),
+        marker=dict(size=4)
+    )
     
     fig.update_layout(
         hovermode='x unified',
         template='plotly_white',
         height=500,
         xaxis_title='Date',
-        yaxis_title='Count'
+        yaxis_title=y_label,
+        yaxis=dict(tickformat=','),
+        showlegend=False
     )
     
     # Add range slider
