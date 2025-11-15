@@ -62,8 +62,8 @@ if page == "Country Dashboard":
             with col1:
                 metric_type = st.selectbox("Select Metric", ["Cases", "Deaths"], key="graphics_metric")
             
-            plot_daily_metrics(country_data, selected_country, metric_type)
-        
+            plot_daily_metrics(country_data, selected_country, metric_type, key_suffix="tab1")
+                
         with tab2:
             st.subheader(f"Data Table - {selected_country}")
             
@@ -179,3 +179,4 @@ elif page == "About":
     ### 🔄 Last Update
     Data refreshes automatically from Our World in Data. Click "Refresh Data" to get the latest statistics.
     """)
+
