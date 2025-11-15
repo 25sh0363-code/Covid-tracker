@@ -8,21 +8,25 @@ def plot_metrics_cards(latest, country):
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
+        cumulative_cases = int(latest['cumulative_cases']) if latest['cumulative_cases'] > 0 else 0
+        daily_cases = int(latest['daily_cases']) if latest['daily_cases'] > 0 else 0
         st.metric(
             label="Total Cases",
-            value=f"{int(latest['cumulative_cases']):,}" if latest['cumulative_cases'] > 0 else "N/A",
-            delta=f"+{int(latest['daily_cases']):,}" if latest['daily_cases'] > 0 else "No new cases"
+            value=f"{cumulative_cases:,}" if cumulative_cases > 0 else "No data",
+            delta=f"+{daily_cases:,}" if daily_cases > 0 else "No new cases"
         )
     
     with col2:
+        cumulative_deaths = int(latest['cumulative_deaths']) if latest['cumulative_deaths'] > 0 else 0
+        daily_deaths = int(latest['daily_deaths']) if latest['daily_deaths'] > 0 else 0
         st.metric(
             label="Total Deaths",
-            value=f"{int(latest['cumulative_deaths']):,}" if latest['cumulative_deaths'] > 0 else "N/A",
-            delta=f"+{int(latest['daily_deaths']):,}" if latest['daily_deaths'] > 0 else "No new deaths"
+            value=f"{cumulative_deaths:,}" if cumulative_deaths > 0 else "No data",
+            delta=f"+{daily_deaths:,}" if daily_deaths > 0 else "No new deaths"
         )
     
     with col3:
-        cfr_value = latest['cfr'] if latest['cfr'] > 0 else 0
+        cfr_value = float(latest['cfr']) if latest['cfr'] > 0 and latest['cfr'] != float('inf') else 0
         st.metric(
             label="Case Fatality Rate",
             value=f"{cfr_value:.2f}%" if cfr_value > 0 else "N/A",
@@ -30,8 +34,8 @@ def plot_metrics_cards(latest, country):
         )
     
     with col4:
-        population = latest['population'] if latest['population'] > 0 else 1
-        cases_per_100k = (latest['cumulative_cases'] / population * 100000) if population > 0 else 0
+        population = float(latest['population']) if latest['population'] > 0 else 0
+        cases_per_100k = (float(latest['cumulative_cases']) / population * 100000) if population > 0 and latest['cumulative_cases'] > 0 else 0
         st.metric(
             label="Cases per 100K",
             value=f"{cases_per_100k:.1f}" if cases_per_100k > 0 else "N/A",
@@ -41,6 +45,11 @@ def plot_metrics_cards(latest, country):
 def plot_daily_metrics(data, country, metric_type):
     """Create line chart for daily metrics."""
     country_data = filter_by_country(data, country)
+    
+    # Check if we have data
+    if country_data.empty:
+        st.warning(f"No data available for {country}")
+        return
     
     if metric_type == "Cases":
         column = "daily_cases"
@@ -52,7 +61,14 @@ def plot_daily_metrics(data, country, metric_type):
         column = "cumulative_cases"
         title = f"Cumulative Cases - {country}"
     
-    fig = px.line(country_data, x='date', y=column, title=title,
+    # Remove rows where the column value is NaN
+    plot_data = country_data[country_data[column].notna()].copy()
+    
+    if plot_data.empty or plot_data[column].sum() == 0:
+        st.info(f"No {metric_type.lower()} data available for {country}")
+        return
+    
+    fig = px.line(plot_data, x='date', y=column, title=title,
                   labels={'date': 'Date', column: 'Count'},
                   markers=True)
     
@@ -64,28 +80,49 @@ def plot_daily_metrics(data, country, metric_type):
         yaxis_title='Count'
     )
     
+    # Add range slider
+    fig.update_xaxes(rangeslider_visible=True)
+    
     st.plotly_chart(fig, use_container_width=True)
 
 def plot_country_comparison(data, countries, normalize=False):
     """Create comparison chart across multiple countries."""
+    if not countries:
+        st.warning("Please select at least one country")
+        return
+    
     fig = go.Figure()
     
     for country in countries:
         country_data = filter_by_country(data, country)
         
+        if country_data.empty:
+            st.warning(f"No data available for {country}")
+            continue
+        
         if normalize and 'population' in country_data.columns:
-            y_val = (country_data['cumulative_cases'] / country_data['population'] * 100000).fillna(0)
-            y_label = "Cases per 100K Population"
+            # Avoid division by zero
+            country_data = country_data[country_data['population'] > 0].copy()
+            if not country_data.empty:
+                y_val = (country_data['cumulative_cases'] / country_data['population'] * 100000).fillna(0)
+                y_label = "Cases per 100K Population"
+            else:
+                continue
         else:
-            y_val = country_data['cumulative_cases']
+            y_val = country_data['cumulative_cases'].fillna(0)
             y_label = "Cumulative Cases"
         
         fig.add_trace(go.Scatter(
             x=country_data['date'],
             y=y_val,
             name=country,
-            mode='lines+markers'
+            mode='lines+markers',
+            hovertemplate='<b>%{fullData.name}</b><br>Date: %{x}<br>Count: %{y:,.0f}<extra></extra>'
         ))
+    
+    if len(fig.data) == 0:
+        st.warning("No data available for selected countries")
+        return
     
     fig.update_layout(
         title="Country Comparison - Cumulative Cases",
@@ -93,34 +130,67 @@ def plot_country_comparison(data, countries, normalize=False):
         yaxis_title=y_label,
         hovermode='x unified',
         template='plotly_white',
-        height=500
+        height=500,
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01
+        )
     )
     
     st.plotly_chart(fig, use_container_width=True)
 
 def plot_global_map(data, map_type, selected_date):
     """Create choropleth map visualization."""
-    # Get latest data or data for selected date
-    map_data = data[data['date'] == selected_date].drop_duplicates(subset=['country'])
+    # Get data for selected date
+    map_data = data[data['date'] == selected_date].drop_duplicates(subset=['country']).copy()
+    
+    if map_data.empty:
+        st.warning(f"No data available for {selected_date}")
+        return
     
     if map_type == "Cases":
         column = "cumulative_cases"
-        title = "Global COVID-19 Cases"
+        title = f"Global COVID-19 Cases - {selected_date.strftime('%Y-%m-%d')}"
+        color_scale = 'Reds'
     elif map_type == "Deaths":
         column = "cumulative_deaths"
-        title = "Global COVID-19 Deaths"
+        title = f"Global COVID-19 Deaths - {selected_date.strftime('%Y-%m-%d')}"
+        color_scale = 'Purples'
     else:
         column = "cfr"
-        title = "Case Fatality Rate (%)"
+        title = f"Case Fatality Rate (%) - {selected_date.strftime('%Y-%m-%d')}"
+        color_scale = 'YlOrRd'
+    
+    # Remove rows with invalid data
+    map_data = map_data[map_data[column].notna() & (map_data[column] >= 0)]
+    
+    if map_data.empty or map_data[column].sum() == 0:
+        st.info(f"No {map_type.lower()} data available for this date")
+        return
     
     fig = px.choropleth(
         map_data,
         locations='iso_code',
         color=column,
         hover_name='country',
-        color_continuous_scale='Reds',
-        title=title
+        hover_data={
+            'iso_code': False,
+            column: ':,.0f' if map_type != "Case Fatality Rate" else ':.2f'
+        },
+        color_continuous_scale=color_scale,
+        title=title,
+        labels={column: map_type}
     )
     
-    fig.update_layout(height=600)
+    fig.update_layout(
+        height=600,
+        geo=dict(
+            showframe=False,
+            showcoastlines=True,
+            projection_type='natural earth'
+        )
+    )
+    
     st.plotly_chart(fig, use_container_width=True)
