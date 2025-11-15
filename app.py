@@ -106,11 +106,11 @@ if page == "Country Dashboard":
                 ["Daily Cases Trend", "Cumulative Cases", "Daily Deaths Trend", "Case Fatality Rate"])
             
             if chart_type == "Daily Cases Trend":
-                plot_daily_metrics(country_data, selected_country, "Cases")
+                plot_daily_metrics(country_data, selected_country, "Cases", key_suffix="tab3_cases")
             elif chart_type == "Cumulative Cases":
-                plot_daily_metrics(country_data, selected_country, "Recoveries")
+                plot_daily_metrics(country_data, selected_country, "Recoveries", key_suffix="tab3_cumulative")
             elif chart_type == "Daily Deaths Trend":
-                plot_daily_metrics(country_data, selected_country, "Deaths")
+                plot_daily_metrics(country_data, selected_country, "Deaths", key_suffix="tab3_deaths")
             else:
                 # CFR chart
                 import plotly.express as px
@@ -131,7 +131,7 @@ elif page == "Daily Metrics":
         metric_type = st.selectbox("Select Metric", ["Cases", "Deaths", "Recoveries"], key="daily_metric")
     
     country_data = filter_by_country(data, selected_country)
-    plot_daily_metrics(country_data, selected_country, metric_type)
+plot_daily_metrics(country_data, selected_country, metric_type, key_suffix="daily_page")
 
 elif page == "Country Comparison":
     st.header("🌍 Country-wise Comparisons")
@@ -179,4 +179,5 @@ elif page == "About":
     ### 🔄 Last Update
     Data refreshes automatically from Our World in Data. Click "Refresh Data" to get the latest statistics.
     """)
+
 
