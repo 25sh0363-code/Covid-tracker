@@ -10,22 +10,38 @@ def load_covid_data():
     Load COVID-19 data from Our World in Data.
     Uses Streamlit caching instead of local file storage.
     """
-    owid_url = "https://covid.ourworldindata.org/data/owid-covid-data.csv"
+    # Try multiple URLs in case one fails
+    urls = [
+        "https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv",
+        "https://github.com/owid/covid-19-data/raw/master/public/data/owid-covid-data.csv",
+        "https://covid.ourworldindata.org/data/owid-covid-data.csv"
+    ]
     
-    try:
-        # Use requests with proper headers
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-        response = requests.get(owid_url, headers=headers, timeout=30)
-        response.raise_for_status()
-        
-        # Read CSV from response content
-        df = pd.read_csv(io.StringIO(response.text))
-        
-    except Exception as e:
-        st.error(f"Failed to load COVID-19 data: {e}")
-        st.info("Please try refreshing the page or check your internet connection.")
+    df = None
+    last_error = None
+    
+    for url in urls:
+        try:
+            # Use requests with proper headers
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            
+            # Read CSV from response content
+            df = pd.read_csv(io.StringIO(response.text))
+            st.success(f"✅ Successfully loaded data from: {url.split('/')[2]}")
+            break  # Success! Exit loop
+            
+        except Exception as e:
+            last_error = e
+            continue  # Try next URL
+    
+    if df is None:
+        st.error(f"❌ Failed to load COVID-19 data from all sources.")
+        st.error(f"Last error: {last_error}")
+        st.info("The data source might be temporarily unavailable. Please try again later.")
         st.stop()
         return None
     
